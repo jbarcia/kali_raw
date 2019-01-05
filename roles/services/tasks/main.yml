@@ -1,0 +1,201 @@
+---
+- name: Install Packages
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+   - cowsay
+   - openssh-server
+   - filezilla
+   - tftp 
+   - atftpd
+   - pure-ftpd
+   - samba
+   - cifs-utils
+   - apache2 
+   - php 
+   - php-cli 
+   - php-curl
+   - debootstrap
+  register: apt_res
+  until: apt_res is success
+  retries: 10
+  delay: 3
+
+- name: Create service directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    recurse: yes
+  with_items:
+   - /root/.config/filezilla/
+
+- name: Create transfer directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: nobody
+    group: root
+    mode: 0755
+  with_items:
+   - /var/tftp/
+   - /var/samba/
+
+- name: Create User Groups
+  group: name={{ item }} state=present
+  with_items:
+    - ftpgroup
+#    - smbgroup
+
+- name: Clonezilla configuration
+  template:
+    src: filezilla.xml.j2
+    dest: /root/.config/filezilla/filezilla.xml
+
+- name: Configure atftpd
+  template:
+    src: atftpd.j2
+    dest: /etc/default/atftpd
+
+- name: Disable atftpd
+  systemd:
+    name: atftpd
+    enabled: no
+    state: stopped
+
+- name: Create FTP user
+  user:
+    name: ftp
+    comment: "FTP user"
+    group: ftpgroup
+    shell: /bin/false
+    home: /var/ftp/
+
+- name: Create FTP pure-ftp user script
+  template:
+    src: pure-ftp-user.j2
+    dest: /tmp/pure-ftp-user.sh
+    mode: 0755
+
+- name: Create FTP pure-ftp user
+  shell: /tmp/pure-ftp-user.sh
+
+- name: Create FTP directory
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: ftp
+    group: ftpgroup
+    mode: 0755
+  with_items:
+   - /var/ftp/
+
+
+- name: Configure pure-ftpd - anonymous access
+  shell: "{{ item }}"
+  with_items:
+   - echo "no" > /etc/pure-ftpd/conf/UnixAuthentication
+   - echo "no" > /etc/pure-ftpd/conf/PAMAuthentication
+   - echo "yes" > /etc/pure-ftpd/conf/NoChmod
+   - echo "yes" > /etc/pure-ftpd/conf/ChrootEveryone
+   - echo "yes" > /etc/pure-ftpd/conf/AnonymousOnly
+   - echo "no" > /etc/pure-ftpd/conf/NoAnonymous
+   - echo "yes" > /etc/pure-ftpd/conf/AnonymousCanCreateDirs
+   - echo "yes" > /etc/pure-ftpd/conf/AllowAnonymousFXP
+   - echo "no" > /etc/pure-ftpd/conf/AnonymousCantUpload
+   - echo "30768 31768" > /etc/pure-ftpd/conf/PassivePortRange
+   - echo "/etc/pure-ftpd/welcome.msg" > /etc/pure-ftpd/conf/FortunesFile
+   - echo "FTP" | /usr/games/cowsay > /etc/pure-ftpd/welcome.msg
+
+- name: Symlink pure-ftpd puredb config
+  file:
+    src: /etc/pure-ftpd/conf/PureDB
+    dest: /etc/pure-ftpd/auth/50pure
+    state: link
+
+- name: Disable pure-ftpd
+  systemd:
+    name: pure-ftpd
+    enabled: no
+    state: stopped
+
+#- name: Create Samba user
+#  user:
+#    name: samba
+#    comment: "Samba user"
+#    group: smbgroup
+#    shell: /bin/false
+#    home: /nonexistent
+
+- name: Configure Samba
+  template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+
+- name: Disable samba
+  systemd:
+    name: "{{ item }}"
+    enabled: no
+    state: stopped
+  with_items:
+    - smbd
+    - nmbd
+
+- name: Configure Apache - index.php
+  template:
+    src: index.php.j2
+    dest: /var/www/html/index.php
+
+- name: Configure Apache - robots.txt
+  template:
+    src: robots.txt.j2
+    dest: /var/www/html/robots.txt
+
+- name: Configure Apache - favicon.ico
+  template:
+    src: favicon.ico.j2
+    dest: /var/www/html/favicon.ico
+
+- name: Disable apache
+  systemd:
+    name: apache2
+    enabled: no
+    state: stopped
+
+- shell: rm -rf /etc/ssh/ssh_host_*
+
+- name: Remove old root SSH keys
+  file:
+    path: /root/.ssh/
+    state: absent
+    #recurse: yes 
+
+- name: Generate new SSH keys
+  shell: "{{ item }}"
+  with_items:
+   - ssh-keygen -b 4096 -t rsa -f /etc/ssh/ssh_host_key -P ""
+   - ssh-keygen -b 4096 -t rsa -f /etc/ssh/ssh_host_rsa_key -P ""
+   - ssh-keygen -b 1024 -t dsa -f /etc/ssh/ssh_host_dsa_key -P ""
+   - ssh-keygen -b 521 -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -P ""
+   - ssh-keygen -b 4096 -t rsa -f ~/.ssh/id_rsa -P ""
+
+- name: Configure SSH MOTD
+  shell: echo "ssh" | /usr/games/cowsay > /etc/motd
+
+- name: Configure SSH
+  template:
+    src: sshd_config.j2
+    dest: /etc/ssh/sshd_config
+
+- name: Disable openssh-server
+  systemd:
+    name: ssh
+    enabled: no
+    state: stopped
+
+- name: Cleanup
+  file:
+    path: "/tmp/{{ item }}"
+    state: absent
+    #recurse: yes 
+  with_items:
+   - pure-ftp-user.sh
+

@@ -1,0 +1,24 @@
+---
+##### Install proxychains-ng 
+- name: Clone proxychains
+  git: 
+    repo: https://github.com/rofl0r/proxychains-ng.git 
+    dest: /opt/proxychains-ng-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Running make for proxychains
+  command: chdir=/opt/proxychains-ng-git/ {{ item }}
+  with_items: 
+    - make -s clean
+    - ./configure --prefix=/usr --sysconfdir=/etc
+    - make -s 
+    - make -s install
+  
+- file:
+    src: /usr/bin/proxychains4
+    dest: /usr/local/bin/proxychains-ng
+    state: link

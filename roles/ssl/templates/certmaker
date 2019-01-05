@@ -1,0 +1,16 @@
+#! /bin/bash
+# certbot certonly --apache -d {{ domain }} --email {{ email }} --agree-tos --non-interactive
+
+certbot renew --standalone
+fqdn={{ domain }}
+letsencdir=/etc/letsencrypt/live/$fqdn
+
+#CobaltStrike
+mv -f $letsencdir/$fqdn.store $letsencdir/$fqdn.store.bk
+openssl pkcs12 -export -in $letsencdir/fullchain.pem -inkey $letsencdir/privkey.pem -out $letsencdir/$fqdn.p12 -name $fqdn -passout pass:password
+keytool -importkeystore -deststorepass password -destkeypass password -destkeystore $letsencdir/$fqdn.store -srckeystore $letsencdir/$fqdn.p12 -srcstoretype PKCS12 -srcstorepass password -alias $fqdn
+cp -f $letsencdir/$fqdn.store /root/SSL-certs/cobaltstrike.store
+
+#MSF / EMPIRE
+rm -f $letsencdir/unified.pem
+cat $letsencdir/privkey.pem $letsencdir/cert.pem >> /root/SSL-certs/unified.pem

@@ -1,0 +1,40 @@
+---
+- name: Install Packages
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+   - ufw
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: Configure ufw firewall
+  template: src=etc_default_ufw dest=/etc/default/ufw
+  tags: ufw
+    
+- name: Enable UFW
+  ufw:
+    state: enabled
+    policy: reject
+    logging: on
+
+- name: Allow access to SSH/80/443
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  with_items:
+    - ssh
+    - 80
+    - 443
+#    src: '{{ item }}'
+#  with_items:
+#    - 10.0.0.0/8
+#    - 172.16.0.0/12
+#    - 192.168.0.0/16
+
+- name: Enable apache
+  systemd:
+    name: apache2
+    enabled: yes
+    state: started

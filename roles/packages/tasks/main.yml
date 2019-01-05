@@ -1,0 +1,228 @@
+---
+- name: Update Kali keyserver
+  become: yes
+  become_user: root
+  apt_key:
+    id: 7D8D0BF6
+    keyserver: hkp://keys.gnupg.net
+    state: present
+
+- name: Remove apt lists
+  become: yes
+  become_user: root
+  file:
+    path: /var/lib/apt/lists
+    state: absent
+
+- name: Install Kali Keyring
+  become: yes
+  become_user: root
+  shell: apt-get update && apt-get install kali-archive-keyring
+#  apt: 
+#    name: kali-archive-keyring
+#    state: latest
+#    update_cache: true
+  register: apt_res
+  until: apt_res is success
+  retries: 10
+  delay: 3
+
+- name: Install Kali Linux Full
+  become: yes
+  become_user: root
+  apt: 
+    name: kali-linux-full
+    state: latest
+    update_cache: true
+  register: apt_res
+  until: apt_res is success
+  retries: 10
+  delay: 3
+
+- name: Remove xplico
+  become: yes
+  become_user: root
+  apt: name=xplico 
+  state: absent
+
+- name: Update and upgrade apt packages
+  become: yes
+  become_user: root
+  apt:
+    upgrade: yes
+    update_cache: yes
+  register: apt_res
+  until: apt_res is success
+  retries: 10
+  delay: 3
+
+- name: Install VM and Build tool Packages
+  become: yes
+  become_user: root
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+#   - virtualbox-guest-x11
+   - open-vm-tools
+   - open-vm-tools-desktop
+   - fuse
+   - make
+   - gcc
+   - unzip
+   - firefox-esr
+   - sqlite3
+   - apache2
+   - php
+   - python
+   - golang 
+   - gparted
+   - filezilla
+   - ncftp
+   - p7zip-full
+   - zip
+   - unzip
+   - file-roller
+   - unace
+   - unrar
+   - rar
+   - p7zip
+   - p7zip-rar
+  register: apt_res
+  until: apt_res is success
+  retries: 10
+  delay: 3
+
+- name: Install Misc Packages
+  become: yes
+  become_user: root
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+   - hashid
+   - httprint
+   - curl
+   - openssl
+   - network-manager-openvpn 
+   - network-manager-pptp 
+   - network-manager-vpnc 
+   - network-manager-openconnect 
+   - network-manager-iodine
+   - bridge-utils
+   - certbot
+   - python-certbot-apache
+   - hashid
+   - httprint
+   - curl
+   - openssl
+   - network-manager-openvpn 
+   - network-manager-pptp 
+   - network-manager-vpnc 
+   - network-manager-openconnect 
+   - network-manager-iodine
+   - bridge-utils
+   - certbot
+   - python-certbot-apache
+  register: apt_res
+  until: apt_res is success
+  retries: 10
+  delay: 3
+
+- name: Upgrade Dist
+  become: yes
+  become_user: root
+  apt:
+    upgrade: dist
+    update_cache: yes
+    dpkg_options: 'force-confold,force-confdef'
+  register: apt_res
+  until: apt_res is success
+  retries: 10
+  delay: 3
+
+- shell: uname -r
+  register: kernel
+
+- name: Install Linux Headers
+  become: yes
+  become_user: root
+  command: apt -y -qq install linux-headers-{{ item }}
+  with_items: "{{ kernel.stdout_lines }}"
+  register: apt_res
+  until: apt_res is success
+  retries: 10
+  delay: 3
+  ignore_errors: yes
+
+# Install Sublime Text 3
+- shell: wget -qO - https://download.sublimetext.com/sublimehq-pub.gpg | sudo apt-key add -
+
+- name: Add Sublime Text Source
+  template:
+    src: sublime-text.list.j2
+    dest: /etc/apt/sources.list.d/sublime-text.list
+
+- name: Install Sublime Text Packages
+  become: yes
+  become_user: root
+  apt: name=sublime-text state=latest update_cache=true
+  register: apt_res
+  until: apt_res is success
+  retries: 10
+  delay: 3
+
+# Update JAVA for Burp and CobaltStrike
+- name: Add Oracle Java Source
+  template:
+    src: java_source.j2
+    dest: /etc/apt/sources.list.d/webupd8team-java.list
+
+- name: Add apt key
+  apt_key:
+    keyserver: keyserver.ubuntu.com
+    id: EEA14886
+    state: present
+#apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys EEA14886
+
+- name: debian | set license as accepted
+  debconf: name='oracle-java8-installer' question='shared/accepted-oracle-license-v1-1' value='true' vtype='select'
+
+- name: Install Oracle Java
+  become: yes
+  become_user: root
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+    oracle-java8-installer
+  register: apt_res
+  until: apt_res is success
+  retries: 10
+  delay: 3
+  
+- name: Set Oracle Java as Default
+  become: yes
+  become_user: root
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+    oracle-java8-set-default
+  register: apt_res
+  until: apt_res is success
+  retries: 10
+  delay: 3
+  
+- name: Create wireshark directory
+  become: yes
+  become_user: root
+  file:
+    path: /root/.wireshark/
+    state: directory
+    recurse: yes
+
+- name: Configure Wireshark
+  template:
+    src: wireshark_recent_common.j2
+    dest: /root/.wireshark/recent_common
+
+- stat: path=/usr/share/wireshark/init.lua
+  register: wireshark_file
+
+- name: Disable lua file
+  shell: mv /usr/share/wireshark/init.lua /usr/share/wireshark/init.lua.disabled
+  when: wireshark_file.stat.exists
+  #ignore_errors: yes

@@ -1,0 +1,32 @@
+---
+- name: Install Client Packages
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+   - openssh-server 
+   - tmux
+   - screen
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Configure SSH daemon
+  become: yes
+  become_user: root
+  template: src=etc_ssh_sshd_config
+    dest=/etc/ssh/sshd_config
+    owner=0 group=0 mode=0644
+
+- name: reload ssh
+  become: yes
+  become_user: root
+  service: name=ssh state=reloaded
+
+- name: restart ssh
+  become: yes
+  become_user: root
+  service: 
+    name: ssh
+    state: started
+    enabled: yes

@@ -1,0 +1,68 @@
+---
+- name: Install Packages
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+   - certbot
+   - python-certbot-apache
+  #- python3-letsencrypt-apache
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Create SSL certificate directory
+  file:
+    path: /root/SSL-certs/
+    state: directory
+    recurse: yes
+
+- name: Start Apache
+  become: yes
+  become_user: root
+  service: 
+    name: apache2 
+    state: started
+    enabled: yes
+
+- name: Create SSL Certs
+  become: yes
+  become_user: root
+  command: certbot certonly --apache -d {{ domain }} --email {{ email }} --agree-tos --non-interactive
+  ignore_errors: yes
+
+- name: Copy over Certmaker Script
+  become: yes
+  become_user: root
+  template: 
+    src: certmaker
+    dest: /root/certmaker.sh
+    mode: 0775
+
+- name: Create Certmaker Cron Job 
+  become: yes
+  become_user: root
+  cron:
+    name: "SSL certificate renew"
+    weekday: "0"
+    minute: "0"
+    hour: "12"
+    job: "/root/certmaker.sh > /dev/null"
+
+- name: Copy over bogus website
+  become: yes
+  become_user: root
+  copy:
+    src: web.tar.gz
+    dest: /tmp/web.tar.gz
+
+- name: Extract files
+  become: yes
+  become_user: root
+  unarchive:
+    src: /tmp/web.tar.gz
+    dest: /var/www/html 
+    owner: www-data
+
+- name: Cleanup
+  file: path=/tmp/web.tar.gz state=absent

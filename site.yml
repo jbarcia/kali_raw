@@ -1,0 +1,68 @@
+---
+# Install and configure Kali RAW Box
+
+# apt-get update && sudo apt install -y ansible
+
+- name: Configure RAW Box
+  hosts: "127.0.0.1"
+  connection: local
+  become: yes
+  become_user: root
+  vars:
+    # Change owner name if applicable and replace public key in roles/users/templates
+    rawbox_owner: "CHANGEME"
+    # Owner Public SSH Key
+    rawbox_owner_pubkey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC8qK0BWBYi95nCj+6RUyL29N/7wr47BrvL/1imu5bwWeOgUu61HU/m1FwI1WAdIUu7MdE01BTbpAeczJadjIBJ/9qjTNdx0vQ/d29K/GJ6iYpD2f0s0IuzRoS9N9Rv4NhWIjuQmtf+4Qe7GG/mfpe9xw/RWlaIkU/5B68aSLytvl9p8iN8LBcnDIR/4KPHMaN387DCQLFiaDvbAh9DedhWcEB9aGyAGMsoMSD7tFg7vrwRcp8LVhvn8P0zqpzoFzdRyTVkc6kKRnyXPS5O8JxH69mjUmAo6jYcZvTp5eTzlEM+KLud5GzxC2jrJ9qqHQtlkWuwxrfvzgP8GsutP/39 joseph@joseph-HP-EliteBook-840-G3"
+    # Change email if necessary
+    email: "CHANGEME@CHANGEME"
+    # Change domain if necessary
+    domain: "CHANGEME.COM"
+    # DUO ikey
+    duo_ikey: "CHANGEME"
+    # Duo secret key
+    duo_skey: "CHANGEME"
+    # Duo API host
+    duo_host: "api-CHANGEME.duosecurity.com"
+    # Enable/Disable NTP
+    ntp_enabled: true
+    # Etc/GMT vs Etc/UTC vs UTC vs Europe/London vs America/New_York
+    ntp_timezone: "UTC"
+
+  vars_prompt:
+    - name: "root_pass"
+      prompt: "Please set/change the root user's password"
+      private: yes
+    - name: "rawbox_owner_pass"
+      prompt: "Please set/change the RAW box owner's password"
+      private: yes
+
+
+  roles:
+    # Install Packages and Dependencies
+    - { role: hostname, tags: [ 'Configure hostname and harden root password' ] }
+    - { role: grub, tags: [ 'grub' ] }
+    - { role: packages, tags: [ 'packages' ] }
+    - { role: python, tags: [ 'python' ] }
+    - { role: pycharms, tags: [ 'configure pycharms' ] }
+
+    # Configure Network and Services for transfer and exfil
+    - { role: services, tags: [ 'configure services to transfer and exfil' ] }
+    - { role: ntp, tags: [ 'ntp' ] }
+    - { role: network, tags: [ 'network' ] }
+
+    # Configure initial user account, SSH, and DUO
+    - { role: users, tags: [ 'user' ] }
+    - { role: duo, tags: [ 'duo' ] }
+    - { role: ssh, tags: [ 'ssh' ] }
+    - { role: firewall, tags: [ 'enable firewall' ] }
+
+    # Configure C2 and SSL certificate
+    - { role: c2, tags: [ 'configure C2s' ] }
+    - { role: ssl, tags: [ 'ssl' ] }
+
+    # Install Misc tools
+    - { role: proxychains, tags: [ 'configure proxychains' ] }
+    - { role: scanners, tags: [ 'configure scanning tools' ] }
+    - { role: post, tags: [ 'configure post assessment tools' ] }
+    - { role: passwords, tags: [ 'configure password attack tools' ] }
+    - { role: wordlists, tags: [ 'configure wordlists' ] }

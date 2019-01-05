@@ -1,0 +1,335 @@
+---
+- name: Install Packages
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+   - metasploit-framework
+   - msfpc
+   - curl 
+   - gnupg 
+   - apt-transport-https
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: Create C2 directory
+  file:
+    path: /opt/C2/
+    state: directory
+    recurse: yes
+
+- name: Create msf4 directories
+  file:
+    path: /root/.msf4/modules/{{item}}/
+    state: directory
+    recurse: yes
+  with_items:
+    - auxiliary
+    - exploits
+    - payloads
+    - post
+
+- name: start postgresql
+  service: 
+    name: postgresql
+    state: started
+#    enabled: no
+
+- name: Start msf
+  command: msfdb reinit
+  ignore_errors: yes
+
+- name: MSF autorun
+  template:
+    src: msf_autorunscript.rc.j2
+    dest: /root/.msf4/msf_autorunscript.rc
+
+- name: MSF startup script
+  template:
+    src: msfconsole.rc.j2
+    dest: /root/.msf4/msfconsole.rc
+
+- name: Create msfvenom directories
+  file:
+    path: /root/.msf4/msfvenom/
+    state: directory
+    recurse: yes
+
+- name: Create msfvenom cheatsheets
+  command: "{{ item }}"
+  with_items:
+  - msfvenom --list > ~/.msf4/msfvenom/all
+  - msfvenom --list nops > ~/.msf4/msfvenom/nops
+  - msfvenom --list payloads > ~/.msf4/msfvenom/payloads
+  - msfvenom --list encoders > ~/.msf4/msfvenom/encoders
+
+- name: Clone empire repo
+  git: 
+    repo: https://github.com/PowerShellEmpire/Empire.git 
+    dest: /opt/C2/empire-git/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+#############################################################################################
+#Install Empire Dependencies 5/2/2018
+
+- name: Import the public repository GPG keys
+  shell: curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+
+- name: Register the Microsoft Product feed
+  template:
+    src: microsoft.list.j2
+    dest: /etc/apt/sources.list.d/microsoft.list
+
+- name: Install powershell
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+   - powershell
+   - make 
+   - g++ 
+   - python-dev 
+   - python-m2crypto 
+   - swig 
+   - python-pip 
+   - libxml2-dev 
+   - default-jdk 
+   - zlib1g-dev 
+   - libssl1.0-dev 
+   - build-essential 
+   - libssl1.0-dev 
+   - libxml2-dev 
+   - zlib1g-dev
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- shell: ls -d /opt/microsoft/powershell/*
+  register: dir_name
+
+- file:
+    state: absent
+    path: "{{ dir_name.stdout_lines }}/DELETE_ME_TO_DISABLE_CONSOLEHOST_TELEMETRY"
+
+- file: path=/usr/local/share/powershell/Modules state=directory
+
+- command: cp -r /opt/C2/empire-git/lib/powershell/Invoke-Obfuscation /usr/local/share/powershell/Modules
+
+- get_url:
+    url: 'http://ftp.us.debian.org/debian/pool/main/o/openssl/libssl1.0.0_1.0.1t-1+deb8u7_amd64.deb'
+    dest: '/tmp/libssl1.0.0_1.0.1t-1+deb8u7_amd64.deb'
+
+- apt: 
+    deb: /tmp/libssl1.0.0_1.0.1t-1+deb8u7_amd64.deb
+    force: yes
+
+- pip:
+    requirements: /opt/C2/empire-git/setup/requirements.txt
+    virtualenv: /opt/python/venv/empire-git
+
+#- command: install_powershell
+
+- unarchive:
+    src: /opt/C2/empire-git/data/misc/xar-1.5.2.tar.gz
+    dest: /opt/C2/empire-git/setup/xar-1.5.2
+
+- command: chdir=/opt/C2/empire-git/setup/xar-1.5.2 {{ item }} 
+  with_items:
+    - ./configure
+    - make
+    - make install
+
+- git: 
+    repo: https://github.com/hogliux/bomutils.git
+    dest: /opt/C2/empire-git/setup/bomutils
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- command: chdir=/opt/C2/empire-git/setup/bomutils {{ item }}
+  
+  with_items:
+    - make
+    - make install
+
+- copy:
+    src: /opt/C2/empire-git/setup/bomutils/build/bin/mkbom
+    dest: /usr/local/bin/mkbom
+    mode: 0755
+
+#  environment:
+#    SETUP_KEY: "RANDOM"
+- command: "source /opt/python/venv/empire-git/bin/activate && echo | python ./setup_database.py"
+  args:
+    chdir: /opt/C2/empire-git/setup/
+
+#- command: "source /opt/python/venv/empire-git/bin/activate && echo | ./reset.sh"
+#  args:
+#    chdir: /opt/C2/empire-git/setup/
+##############################################################################################
+
+- name: empire path script
+  template:
+    src: empire-git.j2
+    dest: /usr/local/bin/empire-git
+    mode: 0755
+
+
+- name: Clone pupy repo
+  git: 
+    repo: https://github.com/n1nj4sec/pupy.git 
+    dest: /opt/C2/pupy/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: Install pupy
+  environment:
+    SETUP_KEY: "RANDOM"
+  command: "{{ item }}"
+  args:
+    chdir: /opt/C2/pupy/
+  with_items:
+    - git submodule init
+    - git submodule update
+
+- name: Install pupy requirements
+  pip:
+    requirements: /opt/C2/pupy/pupy/requirements.txt
+    virtualenv: /opt/python/venv/pupy
+
+- name: Create pupy directories
+  file:
+    path: /opt/C2/pupy/payload_templates/ 
+    state: directory
+    recurse: yes
+
+- name: Create pupy directories
+  file:
+    path: /opt/C2/pupy/pupy/payload_templates/ 
+    state: absent
+
+- name: Extract pupy payload templates
+  unarchive:
+    src: https://github.com/n1nj4sec/pupy/releases/download/latest/payload_templates.txz
+    dest: /opt/C2/pupy/ 
+    remote_src: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+#wget https://github.com/n1nj4sec/pupy/releases/download/latest/payload_templates.txz
+#tar xvf payload_templates.txz && mv payload_templates/* pupy/payload_templates/ && rm payload_templates.txz && rm -r payload_templates
+
+- name: Create Symlink for payload templates
+  file:
+    src: /opt/C2/pupy/payload_templates/payload_templates
+    dest: /opt/C2/pupy/pupy/payload_templates
+    state: link
+
+- name: Clone Trevor C2
+  git: 
+    repo: https://github.com/trustedsec/trevorc2.git
+    dest: /opt/C2/trevorc2-git/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Install Trevor C2
+  pip:
+    requirements: /opt/C2/trevorc2-git/requirements.txt
+    virtualenv: /opt/python/venv/trevorc2-git
+
+- name: Install Trevor C2
+  pip:
+    name: "{{ item }}"
+    virtualenv: /opt/python/venv/trevorc2-git
+  with_items:
+   - urllib3
+   - requests
+
+
+- name: trevorc2_server path script
+  template:
+    src: trevorc2_server-git.j2
+    dest: /usr/local/bin/trevorc2_server-git
+    mode: 0755
+
+#source venv/bin/activate
+#deactivate
+
+- name: Create Cobalt Strike directory
+  file:
+    path: /opt/C2/cobaltstrike
+    state: directory
+    recurse: yes
+
+# Manually install cobaltstrike to /opt/C2/cobaltstrike
+
+- name: Create Symlink for Cobalt Strike
+  file:
+    src: /opt/C2/cobaltstrike
+    dest: /root/cobaltstrike
+    state: link
+
+- name: Cobalt Strike SSL
+  shell:
+    cmd: |
+      cat > /opt/C2/cobaltstrike/cs.profile << EOF
+      https-certificate {
+        set keystore "/root/SSL-certs/cobaltstrike.store";
+        set password "password";
+      }
+      EOF
+
+- name: Clone Malleable-C2-Profiles
+  git: 
+    repo: https://github.com/rsmudge/Malleable-C2-Profiles.git 
+    dest: /opt/C2/cobaltstrike/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Clone Malleable-C2-Profiles Random
+  git: 
+    repo: https://github.com/bluscreenofjeff/Malleable-C2-Randomizer.git
+    dest: /opt/C2/cobaltstrike/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: Clone Aggressor-Script
+  git: 
+    repo: https://github.com/rasta-mouse/Aggressor-Script.git
+    dest: /opt/C2/cobaltstrike/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: Clone AggressorScripts
+  git: 
+    repo: https://github.com/harleyQu1nn/AggressorScripts.git
+    dest: /opt/C2/cobaltstrike/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3

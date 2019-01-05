@@ -1,0 +1,56 @@
+---
+- name: Install Dependencies
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+   - libpam0g-dev
+   - libssl-dev
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+#- name: Download Latest DUO
+#  get_url:
+#    url: https://dl.duosecurity.com/duo_unix-latest.tar.gz
+#    dest: /tmp/duo_unix-latest.tar.gz
+#    mode: 0755
+
+- name: Download and Unarchive the Latest Version of DUO
+  unarchive:
+    src: https://dl.duosecurity.com/duo_unix-latest.tar.gz
+    dest: /tmp
+    remote_src: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- shell: ls -d /tmp/duo_unix-*
+  register: dir_name
+
+#- command: chdir={{ item }} some_command
+#  with_items: dir_name.stdout_lines
+
+- name: Running configure for DUO Security
+  command: chdir={{ item }} ./configure --prefix=/usr --with-pam
+  with_items: "{{ dir_name.stdout_lines }}"
+
+- name: Running make for DUO Security
+  command: chdir={{ item }} make
+  with_items: "{{ dir_name.stdout_lines }}"
+
+- name: Running make install for DUO Security
+  command: chdir={{ item }} make install
+  with_items: "{{ dir_name.stdout_lines }}"
+
+- name: Cleanup Archive
+  file:
+    path: /tmp/duo_unix-latest.tar.gz
+    state: absent
+
+- name: Configure DUO login
+  template: 
+    src: etc_duo_login_duo.conf 
+    dest: /etc/duo/login_duo.conf

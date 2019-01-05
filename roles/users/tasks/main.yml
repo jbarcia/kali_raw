@@ -1,0 +1,36 @@
+---
+# This playbook contains network plays to configure ssh, user ssh config, and autossh.
+
+- name: Create RAW box owner user
+  become: yes
+  become_user: root
+  user:
+    name: "{{ rawbox_owner }}"
+    generate_ssh_key: yes
+    ssh_key_bits: 2048
+    ssh_key_file: .ssh/id_rsa
+    shell: /bin/bash
+    groups: sudo
+
+
+- name: Create RAW box owner SSH directory
+  become: yes
+  become_user: "{{ rawbox_owner }}"
+  file:
+    path: /home/{{ rawbox_owner }}/.ssh
+    state: directory
+    mode: 0700
+
+- name: Create RAW box owner SSH authorized keys file
+  become: yes
+  become_user: "{{ rawbox_owner }}"
+  template: 
+    src: authorized_keys
+    dest: /home/{{ rawbox_owner }}/.ssh/authorized_keys
+    mode: 0644
+    owner: "{{ rawbox_owner }}"
+
+- name: Harden RAW box owner password
+  become: yes
+  become_user: root
+  shell: usermod -p $(echo '{{ rawbox_owner_pass }}' | openssl passwd -1 -stdin) {{ rawbox_owner }}

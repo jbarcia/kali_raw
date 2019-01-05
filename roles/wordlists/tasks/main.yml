@@ -1,0 +1,199 @@
+---
+- name: Install Packages
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+   - seclists
+   - wordlists
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Create wordlist directory
+  file:
+    path: "{{ item }}"
+    state: directory
+#    recurse: yes
+  with_items:
+   - /usr/share/wordlists/
+   - /opt/wordlists/
+   - /usr/share/wordlists/rules/
+
+- name: Clone seclists repo
+  git: 
+    repo: https://github.com/danielmiessler/SecLists.git
+    dest: /opt/wordlists/SecLists-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Create Symlink for Seclists
+  file:
+    src: /opt/wordlists/SecLists-git/
+    dest: /usr/share/wordlists/seclists
+    state: link
+
+- name: Download Crackstation
+  get_url:
+    url: '{{ item.url }}'
+    dest: '{{ item.dest }}'
+  with_items:
+    - { url: 'https://crackstation.net/files/crackstation.txt.gz', dest: '/usr/share/wordlists/' }
+    - { url: 'https://crackstation.net/files/crackstation-human-only.txt.gz', dest: '/usr/share/wordlists/' }
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Extract Crackstation & Rockyou wordlist
+  shell: gzip -dc < /usr/share/wordlists/{{ item }}.txt.gz > /usr/share/wordlists/{{ item }}.txt
+  with_items:
+    - rockyou
+    - crackstation
+    - crackstation-human-only
+
+- name: Create Symlink for dirb lists
+  file:
+    src: /usr/share/dirb/wordlists
+    dest: /usr/share/wordlists/dirb
+    state: link
+
+- name: Extract SQLmap wordlist
+  unarchive:
+    src: /usr/share/sqlmap/txt/wordlist.zip
+    dest: /usr/share/sqlmap/txt/
+
+- name: Create Symlink for SQLmap lists
+  file:
+    src: /usr/share/sqlmap/txt/wordlist.txt
+    dest: /usr/share/wordlists/sqlmap.txt
+    state: link
+
+- name: Clone fuzzdb repo
+  git: 
+    repo: https://github.com/fuzzdb-project/fuzzdb
+    dest: /opt/wordlists/fuzzdb-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: Create Symlink for fuzzdb
+  file:
+    src: /opt/wordlists/fuzzdb-git/
+    dest: /usr/share/wordlists/fuzzdb
+    state: link
+
+- name: Clone RobotsDisallowed repo
+  git: 
+    repo: https://github.com/danielmiessler/RobotsDisallowed.git
+    dest: /opt/wordlists/RobotsDisallowed-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: Create Symlink for RobotsDisallowed
+  file:
+    src: /opt/wordlists/RobotsDisallowed-git/
+    dest: /usr/share/wordlists/RobotsDisallowed
+    state: link
+
+- name: Clone webappurls repo
+  git: 
+    repo: https://github.com/pwnwiki/webappurls.git
+    dest: /opt/wordlists/webappurls-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: Create Symlink for webappurls
+  file:
+    src: /opt/wordlists/webappurls-git/
+    dest: /usr/share/wordlists/webappurls
+    state: link
+
+
+- name: Clone RSMangler repo
+  git: 
+    repo: https://github.com/RandomStorm/RSMangler.git
+    dest: /opt/wordlists/RSMangler-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: RSMangler path script
+  template:
+    src: RSMangler-git.j2
+    dest: /usr/local/bin/RSMangler-git
+    mode: 0755
+
+- name: Clone transmute repo
+  git: 
+    repo: https://github.com/zeroskill/transmute.git
+    dest: /opt/wordlists/transmute-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: transmute path script
+  template:
+    src: transmute-git.j2
+    dest: /usr/local/bin/transmute-git
+    mode: 0755
+
+
+
+
+
+
+
+- name: Create Symlink for hashcat rules
+  file:
+    src: /usr/share/hashcat/rules/
+    dest: /usr/share/wordlists/rules/hashcat
+    state: link
+
+- name: Extract Korelogic hashcat rules
+  unarchive:
+    src: https://contest-2010.korelogic.com/hashcat-rules.tar.gz
+    dest: /usr/share/wordlists/rules/
+    remote_src: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Download hob0 rules
+  get_url:
+    url: '{{ item.url }}'
+    dest: '{{ item.dest }}'
+  with_items:
+    - { url: 'https://raw.githubusercontent.com/praetorian-inc/Hob0Rules/master/d3adhob0.rule', dest: '/usr/share/wordlists/rules/d3adhob0.rule' }
+    - { url: 'https://raw.githubusercontent.com/praetorian-inc/Hob0Rules/master/hob064.rule', dest: '/usr/share/wordlists/rules/hob064.rule' }
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Download NSA rules
+  get_url:
+    url: '{{ item.url }}'
+    dest: '{{ item.dest }}'
+  with_items:
+    - { url: 'https://raw.githubusercontent.com/NSAKEY/nsa-rules/master/_NSAKEY.v1.dive.rule', dest: '/usr/share/wordlists/rules/NSAKEY.v1.dive.rule' }
+    - { url: 'https://raw.githubusercontent.com/NSAKEY/nsa-rules/master/_NSAKEY.v2.dive.rule', dest: '/usr/share/wordlists/rules/NSAKEY.v2.dive.rule' }
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+

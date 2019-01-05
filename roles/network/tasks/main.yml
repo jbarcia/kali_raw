@@ -1,0 +1,29 @@
+---
+# This playbook contains network plays to configure networking for static IP addresses.
+
+- name: Configure network interfaces
+  template: src=etc_network_interfaces dest=/etc/network/interfaces
+  # Doesn't restart networking service to allow configuration to complete
+
+- name: Configure Raw box Hostname
+  hostname:
+    name: "{{ domain }}"
+
+- name: Configure hosts file
+  become: yes
+  become_user: root
+  shell: echo "127.0.0.1     {{ domain }}">> /etc/hosts
+
+#- name: Enable eth interfaces Grub
+#  become: yes
+#  become_user: root
+#  replace:
+#    path: /etc/default/grub
+#    regexp: GRUB_CMDLINE_LINUX_DEFAULT=""
+#    replace: GRUB_CMDLINE_LINUX_DEFAULT="net.ifnames=0 biosdevname=0"
+#    backup: yes
+#
+#- name: Update Grub
+#  become: yes
+#  become_user: root
+#  shell: update-grub

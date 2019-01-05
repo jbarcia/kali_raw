@@ -1,0 +1,106 @@
+---
+- name: Install Packages
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+   - nmap 
+   - hydra 
+   - dnsenum
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Create password directory
+  file:
+    path: "{{ item }}"
+    state: directory
+    recurse: yes
+  with_items:
+   - /opt/passwords/
+
+##### Install credcrack - credential harvester via Samba
+- name: Clone credcrack repo
+  git: 
+    repo: https://github.com/gojhonny/CredCrack.git
+    dest: /opt/passwords/credcrack-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+##### Install patator - brute force
+- name: Clone patator repo
+  git: 
+    repo: https://github.com/lanjelot/patator.git
+    dest: /opt/passwords/patator-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: patator path script
+  template:
+    src: patator-git.j2
+    dest: /usr/local/bin/patator-git
+    mode: 0755
+
+##### Install crowbar - brute force
+- name: Clone crowbar repo
+  git: 
+    repo: https://github.com/galkan/crowbar.git
+    dest: /opt/passwords/crowbar-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: crowbar path script
+  template:
+    src: crowbar-git.j2
+    dest: /usr/local/bin/crowbar-git
+    mode: 0755
+
+##### Install JohnTheRipper - bleeding-jumbo
+- name: Clone JohnTheRipper repo
+  git: 
+    repo: https://github.com/magnumripper/JohnTheRipper.git
+    dest: /opt/passwords/JohnTheRipper-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: Build JohnTheRipper bleeding
+  shell: chdir=/opt/passwords/JohnTheRipper-git/src/ {{ item }}
+  with_items:
+    - ./configure 
+    - make 
+    - make install
+
+
+
+##### Install BruteX 
+- name: Clone BruteX repo
+  git: 
+    repo: https://github.com/1N3/BruteX.git
+    dest: /opt/passwords/BruteX-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: Create Symlink for BruteX wordlists
+  file:
+    src: /opt/passwords/BruteX-git/wordlists
+    dest: /usr/share/wordlists/BruteX
+    state: link
+
+- name: BruteX path script
+  template:
+    src: BruteX-git.j2
+    dest: /usr/local/bin/BruteX-git
+    mode: 0755

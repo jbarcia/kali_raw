@@ -1,0 +1,13 @@
+---
+# This playbook contains network plays to configure ssh, user ssh config, and autossh.
+
+### Hostname based off of Cisco IP Phone
+- name: Configure Hostname
+  hostname:
+    name: "SEP0023EB{{ 1000000 |random(start=100000, step=1) }}"
+
+- name: Harden root password
+  become: yes
+  become_user: root
+  shell: usermod -p $(echo '{{ root_pass }}' | openssl passwd -1 -stdin) root
+

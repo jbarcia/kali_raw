@@ -1,0 +1,197 @@
+---
+- name: Install Packages
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+   - nmap
+   - unicornscan
+   - sparta
+   - xprobe
+   - p0f
+
+##### Install vulscan script for nmap
+- name: Create vulnscan directory
+  file:
+    path: /usr/share/nmap/scripts/vulscan/
+    state: directory
+    recurse: yes
+
+- name: Extract vulscan script
+  unarchive:
+    src: http://www.computec.ch/projekte/vulscan/download/nmap_nse_vulscan-2.0.tar.gz
+    dest: /usr/share/nmap/scripts/
+    remote_src: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+#timeout 300 curl --progress -k -L -f "http://www.computec.ch/projekte/vulscan/download/nmap_nse_vulscan-2.0.tar.gz" > /tmp/nmap_nse_vulscan.tar.gz 
+
+#gunzip /tmp/nmap_nse_vulscan.tar.gz
+#tar -xf /tmp/nmap_nse_vulscan.tar -C /usr/share/nmap/scripts/
+- name: Fix permissions
+  file:
+    path: /usr/share/nmap/scripts/vulscan
+    mode: 0755
+
+- name: Create scanners directory
+  file:
+    path: /opt/scanners/
+    state: directory
+    recurse: yes
+
+##### Install onetwopunch - unicornscan & nmap wrapper
+- name: Clone onetwopunch repo
+  git: 
+    repo: https://github.com/superkojiman/onetwopunch.git 
+    dest: /opt/scanners/onetwopunch-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Onetwopunch path script
+  template:
+    src: onetwopunch-git.j2
+    dest: /usr/local/bin/onetwopunch-git
+    mode: 0755
+
+
+##### Install Gnmap-Parser (fork) - Parse Nmap exports into various plain-text formats"
+- name: Clone Gnmap-Parser repo
+  git: 
+    repo: https://github.com/nullmode/gnmap-parser.git 
+    dest: /opt/scanners/gnmap-parser-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Make executable
+  file:
+    path: /opt/scanners/gnmap-parser-git/gnmap-parser.sh
+    mode: 0755
+
+- file:
+    src: /opt/scanners/gnmap-parser-git/gnmap-parser.sh
+    dest: /usr/local/bin/gnmap-parser-git
+    state: link
+
+- name: Create UDP scanner directory
+  file:
+    path: /opt/scanners/udp-proto-scanner
+    state: directory
+    recurse: yes
+
+##### Install udp-proto-scanner - common UDP port scanner"
+- name: Extract udp-proto-scanner script
+  unarchive:
+    src: https://labs.portcullis.co.uk/download/udp-proto-scanner-1.1.tar.gz
+    dest: /opt/scanners/
+    remote_src: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- shell: ls -d /opt/scanners/udp-proto-scanner-*
+  register: dir_name
+
+- shell: mv {{ dir_name.stdout }}/* /opt/scanners/udp-proto-scanner/
+
+- name: udp-proto-scanner path script
+  template:
+    src: udp-proto-scanner.j2
+    dest: /usr/local/bin/udp-proto-scanner
+    mode: 0755
+
+
+- name: Clone Discover repo
+  git: 
+    repo: https://github.com/leebaird/discover.git
+    dest: /opt/scanners/discover-git/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: discover-git path script
+  template:
+    src: discover-git.j2
+    dest: /usr/local/bin/discover-git
+    mode: 0755
+
+
+
+- name: Clone Sn1per repo
+  git: 
+    repo: https://github.com/1N3/Sn1per.git
+    dest: /opt/scanners/Sn1per-git/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+
+- name: Clone masscan repo
+  git: 
+    repo: https://github.com/robertdavidgraham/masscan.git
+    dest: /opt/scanners/masscan-git/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: Build masscan
+  shell: chdir=/opt/scanners/masscan-git/ {{ item }}
+  with_items:
+    - make
+    - make install
+
+- name: masscan path script
+  template:
+    src: masscan-git.j2
+    dest: /usr/local/bin/masscan-git
+    mode: 0755
+
+
+- name: Clone sparta repo
+  git: 
+    repo: https://github.com/secforce/sparta.git
+    dest: /opt/scanners/sparta-git/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: sparta path script
+  template:
+    src: sparta-git.j2
+    dest: /usr/local/bin/sparta-git
+    mode: 0755
+
+
+- name: Clone spiderfoot repo
+  git: 
+    repo: https://github.com/smicallef/spiderfoot.git
+    dest: /opt/scanners/spiderfoot-git/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: spiderfoot path script
+  template:
+    src: spiderfoot-git.j2
+    dest: /usr/local/bin/spiderfoot-git
+    mode: 0755

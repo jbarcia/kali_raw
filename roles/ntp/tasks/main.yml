@@ -1,0 +1,41 @@
+---
+- include_vars: "variables.yml"
+
+- name: Install Packages
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+   - ntp
+   - ntpdate
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Generate ntp.conf file
+  template:
+    src: ntp.conf.j2
+    dest: /etc/ntp.conf
+
+- name: Set timezone
+  timezone:
+    name: "{{ ntp_timezone }}"
+
+- name: Restart NTP
+  service:
+    name: "ntp"
+    state: restarted
+
+- name: Enable NTP
+  service:
+    name: "ntp"
+    state: started
+    enabled: yes
+  when: ntp_enabled
+  
+- name: Disable NTP
+  service:
+    name: "ntp"
+    state: stopped
+    enabled: no
+  when: not ntp_enabled

@@ -1,0 +1,221 @@
+---
+- name: Install Packages
+  apt: name={{ item }} state=latest update_cache=true
+  with_items:
+   - windows-binaries
+   - lnav
+  register: apt_res
+  until: apt_res is success
+  retries: 10
+  delay: 3
+
+- name: Create post directory
+  file:
+    path: "{{ item }}"
+    state: directory
+    recurse: yes
+  with_items:
+   - /opt/post/
+   - /opt/post/win
+   - /opt/post/linux
+   - /opt/post/osx
+   - /opt/post/win/Sysinternals
+   - /opt/post/win/pshtoolkit
+   - /opt/post/linux/checksec
+
+##### Install UACScript - UAC Bypass for Windows 7
+- name: Clone UACScript repo
+  git: 
+    repo: https://github.com/Vozzie/uacscript.git 
+    dest: /opt/post/win/uacscript-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Symlink uacscript
+  file:
+    src: /opt/post/win/uacscript-git/
+    dest: /usr/share/windows-binaries/uac-win7
+    state: link
+
+
+- name: Clone resolvequick repo
+  git: 
+    repo: https://github.com/mubix/resolvequick.git
+    dest: /opt/post/win/resolvequick-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: Symlink resolvequick
+  file:
+    src: /opt/post/win/resolvequick-git/binary/resolvequick.exe
+    dest: /usr/share/windows-binaries/resolvequick.exe
+    state: link
+
+
+##### Install azazel
+- name: Clone azazel repo
+  git: 
+    repo: https://github.com/chokepoint/azazel.git
+    dest: /opt/post/azazel-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+##### Install Babadook - connection-less powershell backdoor
+- name: Clone Babadook repo
+  git: 
+    repo: https://github.com/jseidl/Babadook.git
+    dest: /opt/post/win/babadook-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+##### Install Sysinternals
+- name: Extract Sysinternals
+  unarchive:
+    src: https://download.sysinternals.com/files/SysinternalsSuite.zip
+    dest: /opt/post/win/Sysinternals
+    remote_src: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- name: Symlink Sysinternals
+  file:
+    src: /opt/post/win/Sysinternals
+    dest: /usr/share/windows-binaries/Sysinternals
+    state: link
+
+##### Install pshtoolkit
+- name: Copy pshtoolkit
+  copy:
+    src: pshtoolkit_v1.4.tar.gz
+    dest: /opt/post/win/pshtoolkit_v1.4.tar.gz
+
+- name: Extract pshtoolkit
+  unarchive:
+    src: /opt/post/win/pshtoolkit_v1.4.tar.gz
+    dest: /opt/post/win/pshtoolkit
+
+- name: Symlink pshtoolkit
+  file:
+    src: /opt/post/win/pshtoolkit
+    dest: /usr/share/windows-binaries/pshtoolkit
+    state: link
+
+- name: Delete pshtoolkit_v1.4.tar.gz
+  file:
+    path: /opt/post/win/pshtoolkit_v1.4.tar.gz
+    state: absent
+
+##### Install Babel scripts - post exploitation scripts
+- name: Clone Babadook repo
+  git: 
+    repo: https://github.com/attackdebris/babel-sf.git
+    dest: /opt/post/babel-sf-git/
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+##### Install checksec - check *nix OS for security features
+- name: Download checksec
+  get_url:
+    url: http://www.trapkit.de/tools/checksec.sh
+    dest: /opt/post/linux/checksec/checksec.sh
+    mode: 0755
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+##### Install ntds-tools
+- name: Clone ntds-tools repo
+  git: 
+    repo: https://github.com/interference-security/ntds-tools.git
+    dest: /opt/post/win/ntds-tools/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+- name: Extract libesedb
+  unarchive:
+    src: /opt/post/win/ntds-tools/libesedb-alpha-20120102.tar.gz
+    dest: /opt/post/win/ntds-tools/
+
+- name: Extract ntdsxtract
+  unarchive:
+    src: /opt/post/win/ntds-tools/ntdsxtract_v1_0.zip
+    dest: /opt/post/win/ntds-tools/
+
+- name: Symlink dshashes.py
+  file:
+    src: /opt/post/win/ntds-tools/dshashes.py
+    dest: "/opt/post/win/ntds-tools/NTDSXtract 1.0/dshashes.py"
+    state: link
+
+- file: path=/opt/post/win/ntds-tools/libesedb-20120102/configure mode=0755 
+
+- name: Make libesedb
+  shell: chdir=/opt/post/win/ntds-tools/libesedb-20120102 {{ item }}
+  with_items:
+   - CFLAGS="-g -O2 -Wall -fgnu89-inline" ./configure --enable-static-executables
+   - make
+
+- name: Symlink esedbexport
+  file:
+    src: /opt/post/win/ntds-tools/libesedb-20120102/esedbtools/esedbexport
+    dest: /usr/local/bin/esedbexport
+    state: link
+
+
+##### Install pth-toolkit
+- name: Clone pth-toolkit repo
+  git: 
+    repo: https://github.com/byt3bl33d3r/pth-toolkit.git
+    dest: /opt/post/win/pth-toolkit-git/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+##### Install creddump7
+- name: Clone creddump7 repo
+  git: 
+    repo: https://github.com/Neohapsis/creddump7.git
+    dest: /opt/post/win/creddump7-git/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+##### Install ImpDump
+- name: Clone ImpDump repo
+  git: 
+    repo: https://github.com/HarmJ0y/ImpDump.git
+    dest: /opt/post/win/ImpDump-git/
+    force: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+  

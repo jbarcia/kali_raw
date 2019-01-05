@@ -1,0 +1,47 @@
+---
+- name: Remove old pycharms
+  file:
+    path: /opt/pycharms
+    state: absent
+
+- name: Create local bin directory
+  file:
+    path: /usr/local/bin/
+    state: directory
+    recurse: yes
+
+- name: Create pycharms directory
+  file:
+    path: /opt/pycharms
+    state: directory
+    recurse: yes
+
+- name: Extract pycharms
+  unarchive:
+    src: https://download.jetbrains.com/python/pycharm-community-2016.2.3.tar.gz
+    dest: /tmp
+    remote_src: yes
+  register: results
+  until: results is success
+  retries: 10
+  delay: 3
+
+
+- shell: ls -d /tmp/pycharm-community-*
+  register: dir_name
+
+- name: Move directory to opt
+  shell: mv {{ dir_name.stdout }}/* /opt/pycharms/
+
+- name: Set pycharms executable
+  file:
+    src: /opt/pycharms/bin/pycharm.sh
+    dest: /usr/local/bin/pycharms
+    state: link
+
+- name: Remove pycharms archive
+  file:
+    path: "{{ dir_name.stdout }}"
+    state: absent
+#    recurse: yes 
+
